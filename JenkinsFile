@@ -38,7 +38,7 @@ pipeline {
         sh '''
           mvn sonar:sonar \
             -Dsonar.projectKey=hello-spring \
-            -Dsonar.host.url=http://<SONARQUBE-IP>:9000 \
+            -Dsonar.host.url=http://16.145.97.202:9000 \
             -Dsonar.login=$SONAR_AUTH_TOKEN
         '''
       }
