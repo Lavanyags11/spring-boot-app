@@ -9,7 +9,7 @@ pipeline {
   environment {
     IMAGE_NAME = "lavanyags88/hello-spring"
     DOCKER_HUB_CRED = credentials('docker')
-    DEPLOY_SERVER_PROD = "ubuntu@54.186.200.158"    // Replace with your production EC2 public IP
+    DEPLOY_SERVER_PROD = "ubuntu@54.186.200.158"    // Replace with your prod EC2 IP
   }
 
   stages {
@@ -21,10 +21,22 @@ pipeline {
       }
     }
 
-    stage('Build & Test') {
+    stage('Run Unit & Integration Tests') {
       steps {
-        echo "🧪 Running Maven Build and Tests..."
-        sh 'mvn clean package -DskipTests=false'
+        echo "🧪 Running Maven Unit and Integration Tests..."
+        sh '''
+          mvn clean test
+          mvn verify
+        '''
+      }
+    }
+
+    stage('Dependency Vulnerability Scan') {
+      steps {
+        echo "🔎 Running OWASP Dependency Check..."
+        sh '''
+          mvn org.owasp:dependency-check-maven:check -Dformat=HTML || true
+        '''
       }
     }
 
@@ -36,6 +48,16 @@ pipeline {
           echo "$DOCKER_HUB_CRED_PSW" | docker login -u "$DOCKER_HUB_CRED_USR" --password-stdin
           docker push $IMAGE_NAME:${BUILD_NUMBER}
           docker logout
+        '''
+      }
+    }
+
+    stage('Container Vulnerability Scan') {
+      steps {
+        echo "🛡️ Scanning Docker image for vulnerabilities using Trivy..."
+        sh '''
+          trivy image --exit-code 0 --severity HIGH,CRITICAL $IMAGE_NAME:${BUILD_NUMBER} > trivy-report.txt
+          echo "🔍 Trivy scan complete. Results saved to trivy-report.txt"
         '''
       }
     }
@@ -78,11 +100,22 @@ pipeline {
   }
 
   post {
+    always {
+      echo "📦 Archiving OWASP report..."
+      archiveArtifacts artifacts: 'target/dependency-check-report.html', fingerprint: true
+    }
+
     success {
       echo "✅ CI/CD Pipeline executed successfully — App deployed to Production!"
+      slackSend channel: '#devops-alerts', color: 'good', message: "✅ Build #${BUILD_NUMBER} succeeded! - ${JOB_NAME}"
     }
+
     failure {
       echo "❌ Build or Deployment failed. Check Jenkins logs for details."
+      slackSend channel: '#devops-alerts', color: 'danger', message: "❌ Build #${BUILD_NUMBER} failed! - ${JOB_NAME}"
+      emailext subject: "❌ Build #${BUILD_NUMBER} Failed - ${JOB_NAME}",
+               body: "Please check the Jenkins console output for details.",
+               to: "gslavanyagowda@gmail.com"
     }
   }
 }
