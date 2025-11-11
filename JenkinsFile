@@ -9,7 +9,7 @@ pipeline {
   environment {
     IMAGE_NAME = "lavanyags88/hello-spring"
     DOCKER_HUB_CRED = credentials('docker')
-    DEPLOY_SERVER = "ubuntu@54.186.200.158" // Replace with your EC2 app server IP
+    DEPLOY_SERVER_PROD = "ubuntu@54.186.200.158"    // Replace with your production EC2 public IP
   }
 
   stages {
@@ -23,12 +23,14 @@ pipeline {
 
     stage('Build & Test') {
       steps {
-        sh 'mvn clean package -DskipTests=true'
+        echo "🧪 Running Maven Build and Tests..."
+        sh 'mvn clean package -DskipTests=false'
       }
     }
 
     stage('Build & Push Docker Image') {
       steps {
+        echo "🐳 Building and Pushing Docker image..."
         sh '''
           docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
           echo "$DOCKER_HUB_CRED_PSW" | docker login -u "$DOCKER_HUB_CRED_USR" --password-stdin
@@ -38,11 +40,32 @@ pipeline {
       }
     }
 
-    stage('Deploy to EC2') {
+    stage('Deploy to Staging (Jenkins Server)') {
       steps {
+        echo "🚀 Deploying to Staging Environment on Jenkins server..."
+        sh '''
+          docker pull $IMAGE_NAME:${BUILD_NUMBER}
+          docker stop hello-spring-staging || true
+          docker rm hello-spring-staging || true
+          docker run -d -p 8081:8080 --name hello-spring-staging $IMAGE_NAME:${BUILD_NUMBER}
+        '''
+      }
+    }
+
+    stage('Approval for Production Deploy') {
+      steps {
+        script {
+          input message: '✅ Staging looks good? Approve deployment to Production?', ok: 'Deploy to Prod'
+        }
+      }
+    }
+
+    stage('Deploy to Production Environment') {
+      steps {
+        echo "🚀 Deploying to Production..."
         sshagent(['ssh-key']) {
           sh '''
-            ssh -o StrictHostKeyChecking=no $DEPLOY_SERVER "
+            ssh -o StrictHostKeyChecking=no $DEPLOY_SERVER_PROD "
               docker pull $IMAGE_NAME:${BUILD_NUMBER} &&
               docker stop hello-spring || true &&
               docker rm hello-spring || true &&
@@ -56,10 +79,10 @@ pipeline {
 
   post {
     success {
-      echo "✅ Deployment completed successfully!"
+      echo "✅ CI/CD Pipeline executed successfully — App deployed to Production!"
     }
     failure {
-      echo "❌ Build failed! Check logs in Jenkins."
+      echo "❌ Build or Deployment failed. Check Jenkins logs for details."
     }
   }
 }
