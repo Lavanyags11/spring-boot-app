@@ -7,7 +7,6 @@ pipeline {
   }
 
   environment {
-    APP_PATH = "spring-boot-app"
     IMAGE_NAME = "lavanyags88/hello-spring"
     DOCKER_HUB_CRED = credentials('docker')
     DEPLOY_SERVER = "ubuntu@54.186.200.158" // Replace with your EC2 app server IP
@@ -24,17 +23,13 @@ pipeline {
 
     stage('Build & Test') {
       steps {
-        sh '''
-          cd ${APP_PATH}
-          mvn clean package -DskipTests=true
-        '''
+        sh 'mvn clean package -DskipTests=true'
       }
     }
 
     stage('Build & Push Docker Image') {
       steps {
         sh '''
-          cd ${APP_PATH}
           docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
           echo "$DOCKER_HUB_CRED_PSW" | docker login -u "$DOCKER_HUB_CRED_USR" --password-stdin
           docker push $IMAGE_NAME:${BUILD_NUMBER}
