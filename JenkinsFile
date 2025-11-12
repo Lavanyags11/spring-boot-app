@@ -100,7 +100,7 @@ pipeline {
       echo "CI/CD Pipeline executed successfully — App deployed to Production!"
       emailext subject: "Build #${BUILD_NUMBER} Succeeded - ${JOB_NAME}",
                body: "Build and deployment completed successfully. Check Trivy report for container vulnerabilities.",
-               to: "lavanya@example.com"
+               to: "gslavanyagowda@gmail.com"
     }
 
     failure {
