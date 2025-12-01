@@ -9,7 +9,7 @@ pipeline {
   environment {
     IMAGE_NAME = "lavanyags88/hello-spring"
     DOCKER_HUB_CRED = credentials('docker')
-    DEPLOY_SERVER_PROD = "ubuntu@34.218.50.241" // Replace with your prod EC2 IP
+    DEPLOY_SERVER_PROD = "ubuntu@54.245.179.123" // Replace with your prod EC2 IP
   }
 
   stages {
